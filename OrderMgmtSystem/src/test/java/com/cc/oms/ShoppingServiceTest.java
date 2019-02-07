@@ -6,6 +6,7 @@ import static org.mockito.Mockito.when;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Optional;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -57,6 +58,24 @@ public class ShoppingServiceTest {
 		// TEST
 		List<CustOrder> custOrderListFromShoppingService = shoppingService.getAllOrdersForUser(1);
 		assertEquals(3, custOrderListFromShoppingService.size());
+	}
+
+	@Test
+	public void getOrderByIdTest() {
+
+		Optional<CustOrder> custOrder = Optional.of(new CustOrder());
+		custOrder.get().setOrderDate(new Date());
+		custOrder.get().setOrderId(1);
+		custOrder.get().setUserId(1);
+		custOrder.get().setOrderstatus("SUCCESS");
+		// custOrder.get().se
+
+		when(orderRepository.findById(1)).thenReturn(custOrder);
+
+		CustOrder custOrderFromSvc = shoppingService.getOrderById(1);
+		assertEquals(1, custOrderFromSvc.getOrderId());
+		assertEquals(1, custOrderFromSvc.getUserId());
+		assertEquals("SUCCESS", custOrderFromSvc.getOrderstatus());
 	}
 
 }
