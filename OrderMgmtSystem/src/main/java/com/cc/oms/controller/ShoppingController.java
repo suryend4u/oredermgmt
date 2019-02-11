@@ -7,6 +7,9 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -18,6 +21,7 @@ import com.cc.oms.entities.CustOrder;
 import com.cc.oms.entities.Item;
 import com.cc.oms.entities.OrderItem;
 import com.cc.oms.entities.User;
+import com.cc.oms.exception.OrderNotFoundException;
 import com.cc.oms.model.Basket;
 import com.cc.oms.service.ShoppingService;
 
@@ -26,6 +30,9 @@ import com.cc.oms.service.ShoppingService;
 public class ShoppingController {
 
 	private static final Logger LOG = LoggerFactory.getLogger(ShoppingController.class);
+	private static final String ORDER_PLACED = "Order has been placed successfully";
+	private static final String ITEM_ADDED = "Item added to basket.";
+	private static final String ITEM_DELETED = "Item deleted from basket.";
 
 	@Autowired
 	ShoppingService shoppingService;
@@ -36,9 +43,8 @@ public class ShoppingController {
 	@Autowired
 	User user;
 
-	@PostMapping("/addToBasket")
-	public void addItemsToBasket(@RequestBody OrderItem orderItem) {
-		try {
+	@PostMapping("/basket")
+	public ResponseEntity<String> addItemsToBasket(@RequestBody OrderItem orderItem) {
 			LOG.debug("***Starting addToBasket***");
 			List<OrderItem> itemsInBasket = basket.getOrderItems();
 			if (null == itemsInBasket) {
@@ -50,50 +56,43 @@ public class ShoppingController {
 			}
 			basket.setOrderItems(itemsInBasket);
 			LOG.debug("***ending addToBasket***");
-		} catch (Exception e) {
-			LOG.error("Error in adding to basket");
-		}
+
+		return new ResponseEntity<String>(ITEM_ADDED, HttpStatus.OK);
 	}
 
-	@PostMapping("/deleteFromBasket")
-	public void deleteItemsFromBasket(@RequestBody OrderItem orderItem) {
+	@DeleteMapping("/basket")
+	public ResponseEntity<String> deleteItemsFromBasket(@RequestBody OrderItem orderItem) {
 
-		try {
-			LOG.debug("***Starting deleteFromBasket***");
-			List<OrderItem> itemsInBasket = basket.getOrderItems();
-			if (null != itemsInBasket && !itemsInBasket.isEmpty() && itemsInBasket.contains(orderItem)) {
-				itemsInBasket.remove(orderItem);
-				LOG.debug("***removed from basket***");
-				basket.setOrderItems(itemsInBasket);
-			}
-
-			LOG.debug("***ending deleteFromBasket***");
-		} catch (Exception e) {
-
-			LOG.error("Error in deleting from Basket.");
-
+		LOG.debug("***Starting deleteFromBasket***");
+		List<OrderItem> itemsInBasket = basket.getOrderItems();
+		if (null != itemsInBasket && !itemsInBasket.isEmpty() && itemsInBasket.contains(orderItem)) {
+			itemsInBasket.remove(orderItem);
+			LOG.debug("***removed from basket***");
+			basket.setOrderItems(itemsInBasket);
 		}
+
+		LOG.debug("***ending deleteFromBasket***");
+
+		return new ResponseEntity<String>(ITEM_DELETED, HttpStatus.OK);
 	}
 
-	@GetMapping("/createOrder")
-	public void createOrder() {
+	@PostMapping("/neworder")
+	public ResponseEntity<String> createOrder() {
 
-		try {
-			LOG.debug("***Starting createOrder***");
-			List<OrderItem> itemsInBasket = basket.getOrderItems();
-			LOG.debug("**Basket size is ***" + itemsInBasket.size());
-			BigDecimal amountToPay = calculateTotalAmount(itemsInBasket);
-			boolean isPaymentSuccessful = getPayments(amountToPay);
+		LOG.debug("***Starting Order***");
+		List<OrderItem> itemsInBasket = basket.getOrderItems();
+		LOG.debug("**Basket size is ***" + itemsInBasket.size());
+		BigDecimal amountToPay = calculateTotalAmount(itemsInBasket);
+		boolean isPaymentSuccessful = getPayments(amountToPay);
 
-			if (isPaymentSuccessful) {
-				shoppingService.createOrder(basket, user.getUserid());
-				basket.setOrderItems(new ArrayList<OrderItem>());
-			}
-
-			LOG.debug("***ending createOrder***");
-		} catch (Exception e) {
-			LOG.error("Error in creating Order from Basket.");
+		if (isPaymentSuccessful) {
+			shoppingService.createOrder(basket, user.getUserid());
+			basket.setOrderItems(new ArrayList<OrderItem>());
 		}
+
+		LOG.debug("***ending Order***");
+
+		return new ResponseEntity<String>(ORDER_PLACED, HttpStatus.CREATED);
 	}
 
 	private boolean getPayments(BigDecimal amountToPay) {
@@ -117,27 +116,21 @@ public class ShoppingController {
 		return totalPrice;
 	}
 
-	@GetMapping("/listAllOrders")
-	public List<CustOrder> getAllOrdersForUser()
+	@GetMapping("/orders")
+	public ResponseEntity<List<CustOrder>> getAllOrdersForUser()
 	{
-		try {
-			LOG.debug("***Starting listAllOrders***");
-
-		} catch (Exception e) {
-			LOG.error("Error in listing All Orders for user");
-		}
-		return shoppingService.getAllOrdersForUser(user.getUserid());
+		int userId = user.getUserid();
+		List<CustOrder> custOrders = shoppingService.getAllOrdersForUser(userId);
+		return new ResponseEntity<List<CustOrder>>(custOrders, HttpStatus.OK);
 	}
 
-	@GetMapping("/getOrder/{orderId}")
-	public CustOrder getOrderById(@PathVariable int orderId) {
+	@GetMapping("/orders/{orderId}")
+	public ResponseEntity<CustOrder> getOrderById(@PathVariable int orderId) {
 		CustOrder custOrder = new CustOrder();
-		try {
-			custOrder = shoppingService.getOrderById(orderId);
-		} catch (Exception e) {
-			LOG.error("Error in getting orderId " + orderId);
-		}
-		return custOrder;
+
+		custOrder = shoppingService.getOrderById(orderId);
+		return new ResponseEntity<CustOrder>(custOrder, HttpStatus.OK);
+
 	}
 
 }
